@@ -120,6 +120,15 @@ config COMMON_CLK_CDCE925
 	  Given a target output frequency, the driver will set the PLL and
 	  divider to best approximate the desired output.
 
+config COMMON_CLK_CDCM6208
+	tristate "Clock driver for TI CDCM6208 devices"
+	depends on I2C
+	depends on OF
+	select REGMAP_I2C
+	help
+	---help---
+	  This driver supports TI CDCM6208 2:8 Ultra Low Power, Low Jitter Clock Generator
+
 config COMMON_CLK_CS2000_CP
 	tristate "Clock driver for CS2000 Fractional-N Clock Synthesizer & Clock Multiplier"
 	depends on I2C
