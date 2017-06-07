@@ -62,6 +62,27 @@
 		};
 	};
 
+	q2_clk: q2 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <25000000>;
+	};
+
+	i2c: i2c@50000000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "arm,versatile-i2c";
+		reg = <0x50000000 0x1000>;
+		status = "okay";
+
+		cdcm6208@68 {
+			compatible = "ti,cdcm6208";
+			reg = <0x68>;
+			clocks = <&q2_clk>;
+			clock-names = "secondary";
+		};
+	};
+
 	memory@60000000 {
 		device_type = "memory";
 		reg = <0x60000000 0x40000000>;
