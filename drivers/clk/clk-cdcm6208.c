@@ -43,6 +43,7 @@ static int cdcm6208_probe(struct i2c_client *client,
 		"secondary",
 	};
 	int i;
+	int clk_in_found=0;
 
 	dev_dbg(&client->dev, "%s\n", __func__);
 	pdev = devm_kzalloc(&client->dev, sizeof(*pdev), GFP_KERNEL);
@@ -53,10 +54,19 @@ static int cdcm6208_probe(struct i2c_client *client,
 
 	for (i=0; i<CDCM6208_INPUT_CLKS; i++) {
 		pdev->clks[i] = devm_clk_get(&client->dev, clk_names[i]);
+		if (IS_ERR(pdev->clks[i])) {
+			if (PTR_ERR(pdev->clks[i]) == -EPROBE_DEFER)
+				return -EPROBE_DEFER;
+		} else {
+			clk_in_found = 1;
+		}
 	}
 
-	pdev->clks[0] = devm_clk_get(&client->dev, "primary_clk");
-	pdev->clks[1] = devm_clk_get(&client->dev, "secondary_clk");
+	if (IS_ERR(pdev->clks[0]) && IS_ERR(pdev->clks[1])) {
+		dev_err(&client->dev, "No valid input clock found\n");
+		return -EINVAL;
+	}
+
 
 	return 0;
 }
