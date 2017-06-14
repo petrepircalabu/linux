@@ -83,6 +83,18 @@
 		};
 	};
 
+	gpio0: gpio@10014000 {
+		compatible = "arm,pl061", "arm,primecell";
+		reg = <0x10014000 0x1000>;
+		gpio-controller;
+		interrupts = <6>;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		clocks = <&oscclk2>;
+		clock-names = "apb_pclk";
+	};
+
 	memory@60000000 {
 		device_type = "memory";
 		reg = <0x60000000 0x40000000>;
