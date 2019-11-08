@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# XEN vm_event socket support
+#
+config XEN_VM_EVENT
+	tristate "Xen vm_event socket"
+	depends on XEN
+	default y
+	help
+	  Socket based interface for XEN vm_events
+
