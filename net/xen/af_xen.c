@@ -15,11 +15,34 @@
 #include <xen/xen.h>
 
 #define VERSION "0.1"
+static int xen_sock_create(struct net *net, struct socket *sock, int proto,
+			   int kern)
+{
+	if (net != &init_net)
+		return -EAFNOSUPPORT;
+
+	if (proto < 0 || proto >= XENPROTO_MAX)
+		return -EINVAL;
+
+	return 0;
+}
+
+static const struct net_proto_family xen_sock_family_ops = {
+	.owner	= THIS_MODULE,
+	.family	= PF_XEN,
+	.create	= xen_sock_create,
+};
 
 static __init int xen_init(void)
 {
+	int err;
+
 	if (!xen_domain())
 		return -ENODEV;
+
+	err = sock_register(&xen_sock_family_ops);
+	if (err)
+		return err;
 
 	return 0;
 }
