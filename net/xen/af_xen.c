@@ -10,7 +10,7 @@
 #define pr_fmt(fmt) "xen:" KBUILD_MODNAME ": " fmt
 
 #include <linux/module.h>
-#include <net/sock.h>
+#include <net/xen/xen.h>
 
 #include <xen/xen.h>
 
@@ -49,6 +49,22 @@ void xen_sock_unregister(int proto, const struct net_proto_family *ops)
 	write_unlock(&xen_proto_lock);
 };
 EXPORT_SYMBOL(xen_sock_unregister);
+
+void xen_sock_link(struct xen_sock_list *l, struct sock *sk)
+{
+	write_lock(&l->lock);
+	sk_add_node(sk, &l->head);
+	write_unlock(&l->lock);
+}
+EXPORT_SYMBOL(xen_sock_link);
+
+void xen_sock_unlink(struct xen_sock_list *l, struct sock *sk)
+{
+	write_lock(&l->lock);
+	sk_del_node_init(sk);
+	write_unlock(&l->lock);
+}
+EXPORT_SYMBOL(xen_sock_unlink);
 
 static int xen_sock_create(struct net *net, struct socket *sock, int proto,
 			   int kern)
@@ -94,11 +110,21 @@ static __init int xen_init(void)
 	if (err)
 		return err;
 
+	err = vm_event_sock_init();
+	if (err)
+		goto unregister_socket;
+
 	return 0;
+
+unregister_socket:
+	sock_unregister(PF_XEN);
+
+	return err;
 }
 
 static __exit void xen_exit(void)
 {
+	vm_event_sock_cleanup();
 }
 
 module_init(xen_init);
