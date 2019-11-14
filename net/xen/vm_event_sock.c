@@ -19,24 +19,72 @@ static struct xen_sock_list vm_event_sk_list = {
 	.lock = __RW_LOCK_UNLOCKED(vm_event_sk_list.lock)
 };
 
+static int vm_event_sock_release(struct socket *sock)
+{
+	return -EOPNOTSUPP;
+}
+
+static int vm_event_sock_bind(struct socket *sock, struct sockaddr *addr,
+			      int addr_len)
+{
+	return -EOPNOTSUPP;
+}
+
+static int vm_event_sock_getname(struct socket *sock, struct sockaddr *addr,
+				 int peer)
+{
+	return -EOPNOTSUPP;
+}
+
+static int vm_event_sock_ioctl(struct socket *sock, unsigned int cmd,
+			       unsigned long arg)
+{
+	return -EOPNOTSUPP;
+}
+
+static int vm_event_sock_setsockopt(struct socket *sock, int level, int optname,
+				    char __user *optval, unsigned int len)
+{
+	return -EOPNOTSUPP;
+}
+
+static int vm_event_sock_getsockopt(struct socket *sock, int level, int optname,
+				    char __user *optval, int __user *optlen)
+{
+	return -EOPNOTSUPP;
+}
+
+static int vm_event_sock_sendmsg(struct socket *sock, struct msghdr *msg,
+				 size_t len)
+{
+	return -EOPNOTSUPP;
+}
+
+static int vm_event_sock_recvmsg(struct socket *sock, struct msghdr *msg,
+				 size_t len, int flags)
+{
+	return -EOPNOTSUPP;
+}
+
 static const struct proto_ops vm_event_sock_ops = {
 	.family		= PF_XEN,
 	.owner		= THIS_MODULE,
-	.release	= NULL,
-	.bind		= NULL,
-	.getname	= NULL,
-	.sendmsg	= NULL,
-	.recvmsg	= NULL,
-	.ioctl		= NULL,
-	.poll		= NULL,
-	.listen		= NULL,
-	.shutdown	= NULL,
-	.setsockopt	= NULL,
-	.getsockopt	= NULL,
-	.connect	= NULL,
-	.socketpair	= NULL,
-	.accept		= NULL,
-	.mmap		= NULL,
+	.release	= vm_event_sock_release,
+	.bind		= vm_event_sock_bind,
+	.connect	= sock_no_connect,
+	.socketpair	= sock_no_socketpair,
+	.accept		= sock_no_accept,
+	.getname	= vm_event_sock_getname,
+	.poll		= datagram_poll,
+	.ioctl		= vm_event_sock_ioctl,
+	.listen		= sock_no_listen,
+	.shutdown	= sock_no_shutdown,
+	.setsockopt	= vm_event_sock_setsockopt,
+	.getsockopt	= vm_event_sock_getsockopt,
+	.sendmsg	= vm_event_sock_sendmsg,
+	.recvmsg	= vm_event_sock_recvmsg,
+	.mmap		= sock_no_mmap,
+	.sendpage	= sock_no_sendpage,
 };
 
 static struct proto vm_event_sk_proto = {
