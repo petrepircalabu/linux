@@ -58,6 +58,7 @@ int HYPERVISOR_vm_assist(unsigned int cmd, unsigned int type);
 int HYPERVISOR_dm_op(domid_t domid, unsigned int nr_bufs,
 		     struct xen_dm_op_buf *bufs);
 int HYPERVISOR_platform_op_raw(void *arg);
+int HYPERVISOR_domstate_notify(unsigned int cmd, void *arg);
 static inline int HYPERVISOR_platform_op(struct xen_platform_op *op)
 {
 	op->interface_version = XENPF_INTERFACE_VERSION;
