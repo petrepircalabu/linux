@@ -36,9 +36,12 @@ obj-$(CONFIG_XEN_SCSI_BACKEND)		+= xen-scsiback.o
 obj-$(CONFIG_XEN_AUTO_XLATE)		+= xlate_mmu.o
 obj-$(CONFIG_XEN_PVCALLS_BACKEND)	+= pvcalls-back.o
 obj-$(CONFIG_XEN_PVCALLS_FRONTEND)	+= pvcalls-front.o
+obj-$(CONFIG_XEN_DOMSTATE_NOTIFY)	+= xen-domstate-notify.o
+
 xen-evtchn-y				:= evtchn.o
 xen-gntdev-y				:= gntdev.o
 xen-gntdev-$(CONFIG_XEN_GNTDEV_DMABUF)	+= gntdev-dmabuf.o
 xen-gntalloc-y				:= gntalloc.o
 xen-privcmd-y				:= privcmd.o privcmd-buf.o
 obj-$(CONFIG_XEN_FRONT_PGDIR_SHBUF)	+= xen-front-pgdir-shbuf.o
+xen-domstate-notify-y			:= domstate-notify.o

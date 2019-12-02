@@ -87,6 +87,12 @@ config XEN_DEV_EVTCHN
 	  firing.
 	  If in doubt, say yes.
 
+config XEN_DOMSTATE_NOTIFY
+	tristate "Xen domain state change notification"
+	default y
+	help
+	  Signals when a domain changes state
+
 config XEN_BACKEND
 	bool "Backend driver support"
 	default XEN_DOM0
