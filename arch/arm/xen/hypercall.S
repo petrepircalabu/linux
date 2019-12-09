@@ -93,6 +93,7 @@ HYPERCALL1(platform_op_raw);
 HYPERCALL2(multicall);
 HYPERCALL2(vm_assist);
 HYPERCALL3(dm_op);
+HYPERCALL2(domstate_notify_op);
 
 ENTRY(privcmd_call)
 	stmdb sp!, {r4}

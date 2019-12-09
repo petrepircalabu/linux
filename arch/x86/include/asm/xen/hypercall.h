@@ -530,4 +530,10 @@ MULTI_stack_switch(struct multicall_entry *mcl,
 	trace_xen_mc_entry(mcl, 2);
 }
 
+static inline long
+HYPERVISOR_domstate_notify_op(unsigned int cmd, void *arg)
+{
+	return _hypercall2(long, domstate_notify_op, cmd, arg);
+}
+
 #endif /* _ASM_X86_XEN_HYPERCALL_H */
