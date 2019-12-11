@@ -15,14 +15,62 @@
 #include <net/netlink.h>
 #include <net/genetlink.h>
 
+#include <asm/xen/hypercall.h>
+#include <xen/interface/domstate_notify.h>
+
 #define VERSION "0.1"
 
-struct domstate_notify_data {
+struct domstate_notify_priv {
+	int refs;
 };
 
-static struct domstate_notify_data *data = NULL;
-static int domstate_notify_refs = 0;
+static struct domstate_notify_priv *priv = NULL;
 static DEFINE_MUTEX(domstate_notify_refs_mutex);
+
+static int domstate_notify_init(struct domstate_notify_priv *priv)
+{
+	return HYPERVISOR_domstate_notify_op(XEN_DOMSTATE_NOTIFY_register, NULL);
+}
+
+static void domstate_notify_cleanup(struct domstate_notify_priv *priv)
+{
+	HYPERVISOR_domstate_notify_op(XEN_DOMSTATE_NOTIFY_unregister, NULL);
+}
+
+static int domstate_notify_get(struct domstate_notify_priv **ppriv)
+{
+	if (*ppriv == NULL) {
+		struct domstate_notify_priv *priv =
+			kzalloc(sizeof(struct domstate_notify_priv),
+				GFP_KERNEL);
+		int rc;
+
+		if (priv == NULL)
+			return -ENOMEM;
+
+		rc = domstate_notify_init(priv);
+		if ( rc ) {
+			kfree(priv);
+			return rc;
+		}
+
+		priv->refs = 1;
+		*ppriv = priv;
+	} else
+		(*ppriv)->refs++;
+
+	return 0;
+}
+
+static void domstate_notify_put(struct domstate_notify_priv **ppriv)
+{
+	if (*ppriv == NULL || --(*ppriv)->refs > 0 )
+		return;
+
+	domstate_notify_cleanup(*ppriv);
+	kfree(*ppriv);
+	*ppriv = NULL;
+}
 
 /* GENL Interface */
 
@@ -50,23 +98,14 @@ static const struct nla_policy domstate_notify_attr_policy[DOMSTATE_NOTIFY_ATTR_
 
 static int domstate_notify_genl_open(struct sk_buff *skb, struct genl_info *info)
 {
-	int rc = 0;
+	int rc;
 
 	pr_debug("%s:\n", __func__);
 
 	mutex_lock(&domstate_notify_refs_mutex);
 
-	if (data == NULL) {
-		data = kzalloc(sizeof(struct domstate_notify_data), GFP_KERNEL);
-		if (data == NULL) {
-			mutex_unlock(&domstate_notify_refs_mutex);
-			rc = -ENOMEM;
-			goto out;
-		}
-	} else
-		domstate_notify_refs++;
+	rc = domstate_notify_get(&priv);
 
-out:
 	mutex_unlock(&domstate_notify_refs_mutex);
 
 	return rc;
@@ -79,10 +118,7 @@ static int domstate_notify_genl_destroy(struct sk_buff *skb,
 
 	mutex_lock(&domstate_notify_refs_mutex);
 
-	if (domstate_notify_refs > 0)
-		domstate_notify_refs--;
-	else
-		kfree(data);
+	domstate_notify_put(&priv);
 
 	mutex_unlock(&domstate_notify_refs_mutex);
 
