@@ -29,16 +29,22 @@ static DEFINE_MUTEX(domstate_notify_refs_mutex);
 
 static int domstate_notify_init(struct domstate_notify_priv *priv)
 {
+	pr_debug("%s:\n", __func__);
+
 	return HYPERVISOR_domstate_notify_op(XEN_DOMSTATE_NOTIFY_register, NULL);
 }
 
 static void domstate_notify_cleanup(struct domstate_notify_priv *priv)
 {
+	pr_debug("%s:\n", __func__);
+
 	HYPERVISOR_domstate_notify_op(XEN_DOMSTATE_NOTIFY_unregister, NULL);
 }
 
 static int domstate_notify_get(struct domstate_notify_priv **ppriv)
 {
+	pr_debug("%s:\n", __func__);
+
 	if (*ppriv == NULL) {
 		struct domstate_notify_priv *priv =
 			kzalloc(sizeof(struct domstate_notify_priv),
@@ -64,6 +70,8 @@ static int domstate_notify_get(struct domstate_notify_priv **ppriv)
 
 static void domstate_notify_put(struct domstate_notify_priv **ppriv)
 {
+	pr_debug("%s:\n", __func__);
+
 	if (*ppriv == NULL || --(*ppriv)->refs > 0 )
 		return;
 
