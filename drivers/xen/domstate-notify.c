@@ -22,6 +22,7 @@
 
 struct domstate_notify_priv {
 	int refs;
+	void *buffer;
 };
 
 static struct domstate_notify_priv *priv = NULL;
@@ -31,6 +32,10 @@ static int domstate_notify_init(struct domstate_notify_priv *priv)
 {
 	pr_debug("%s:\n", __func__);
 
+	priv->buffer = (void *)__get_free_page(GFP_ATOMIC);
+	if (priv->buffer == NULL)
+		return -ENOMEM;
+
 	return HYPERVISOR_domstate_notify_op(XEN_DOMSTATE_NOTIFY_register, NULL);
 }
 
@@ -39,6 +44,8 @@ static void domstate_notify_cleanup(struct domstate_notify_priv *priv)
 	pr_debug("%s:\n", __func__);
 
 	HYPERVISOR_domstate_notify_op(XEN_DOMSTATE_NOTIFY_unregister, NULL);
+
+	free_page((unsigned long)priv->buffer);
 }
 
 static int domstate_notify_get(struct domstate_notify_priv **ppriv)
