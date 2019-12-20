@@ -17,12 +17,14 @@
 
 #include <asm/xen/hypercall.h>
 #include <xen/interface/domstate_notify.h>
+#include <xen/page.h>
 
 #define VERSION "0.1"
 
 struct domstate_notify_priv {
 	int refs;
-	void *buffer;
+	void *ring_page;
+	struct domstate_notify_back_ring back_ring;
 };
 
 static struct domstate_notify_priv *priv = NULL;
@@ -30,13 +32,30 @@ static DEFINE_MUTEX(domstate_notify_refs_mutex);
 
 static int domstate_notify_init(struct domstate_notify_priv *priv)
 {
+	struct domstate_notify_register reg;
+	int rc;
+
 	pr_debug("%s:\n", __func__);
 
-	priv->buffer = (void *)__get_free_page(GFP_ATOMIC);
-	if (priv->buffer == NULL)
+	priv->ring_page = (void *)__get_free_page(GFP_ATOMIC);
+	if (priv->ring_page == NULL)
 		return -ENOMEM;
 
-	return HYPERVISOR_domstate_notify_op(XEN_DOMSTATE_NOTIFY_register, NULL);
+	reg.page_gfn = virt_to_gfn(priv->ring_page);
+
+	rc = HYPERVISOR_domstate_notify_op(XEN_DOMSTATE_NOTIFY_register, &reg);
+	if (rc) {
+		pr_err("XEN_DOMSTATE_NOTIFY_register failed with %d\n", rc);
+		return rc;
+	}
+
+	/* Initialise ring */
+	SHARED_RING_INIT((struct domstate_notify_sring *)priv->ring_page);
+	BACK_RING_INIT(&priv->back_ring,
+		       (struct domstate_notify_sring *)priv->ring_page,
+		       XEN_PAGE_SIZE);
+
+	return rc;
 }
 
 static void domstate_notify_cleanup(struct domstate_notify_priv *priv)
@@ -45,7 +64,7 @@ static void domstate_notify_cleanup(struct domstate_notify_priv *priv)
 
 	HYPERVISOR_domstate_notify_op(XEN_DOMSTATE_NOTIFY_unregister, NULL);
 
-	free_page((unsigned long)priv->buffer);
+	free_page((unsigned long)priv->ring_page);
 }
 
 static int domstate_notify_get(struct domstate_notify_priv **ppriv)
