@@ -24,7 +24,6 @@
  */
 struct domstate_notify_register {
 	uint64_t page_gfn;
-	uint32_t port;
 };
 
 typedef struct domstate_notify_st {

@@ -11,11 +11,13 @@
 /* Enable debug ouput */
 #define DEBUG
 
+#include <linux/wait.h>
 #include <linux/module.h>
 #include <net/netlink.h>
 #include <net/genetlink.h>
 
 #include <asm/xen/hypercall.h>
+#include <xen/events.h>
 #include <xen/interface/domstate_notify.h>
 #include <xen/page.h>
 
@@ -25,10 +27,16 @@ struct domstate_notify_priv {
 	int refs;
 	void *ring_page;
 	struct domstate_notify_back_ring back_ring;
+	int irq;
 };
 
 static struct domstate_notify_priv *priv = NULL;
 static DEFINE_MUTEX(domstate_notify_refs_mutex);
+
+static irqreturn_t domstate_notify_event(int irq, void *arg)
+{
+	return IRQ_HANDLED;
+}
 
 static int domstate_notify_init(struct domstate_notify_priv *priv)
 {
@@ -46,6 +54,7 @@ static int domstate_notify_init(struct domstate_notify_priv *priv)
 	rc = HYPERVISOR_domstate_notify_op(XEN_DOMSTATE_NOTIFY_register, &reg);
 	if (rc) {
 		pr_err("XEN_DOMSTATE_NOTIFY_register failed with %d\n", rc);
+		free_page((unsigned long)priv->ring_page);
 		return rc;
 	}
 
@@ -55,12 +64,31 @@ static int domstate_notify_init(struct domstate_notify_priv *priv)
 		       (struct domstate_notify_sring *)priv->ring_page,
 		       XEN_PAGE_SIZE);
 
+	rc = bind_virq_to_irqhandler(VIRQ_DOMSTATE, 0,
+				     domstate_notify_event,
+				     0, "domstate-notify-event", NULL);
+	if (rc < 0) {
+		pr_err("Failed to bind evtchn to irqhandler rc = %d\n", rc);
+		goto err;
+	}
+
+	priv->irq = rc;
+
+	return 0;
+
+err:
+	HYPERVISOR_domstate_notify_op(XEN_DOMSTATE_NOTIFY_unregister, NULL);
+	free_page((unsigned long)priv->ring_page);
+
 	return rc;
 }
 
 static void domstate_notify_cleanup(struct domstate_notify_priv *priv)
 {
 	pr_debug("%s:\n", __func__);
+
+	unbind_from_irqhandler(priv->irq, NULL);
+	priv->irq = -1;
 
 	HYPERVISOR_domstate_notify_op(XEN_DOMSTATE_NOTIFY_unregister, NULL);
 
@@ -80,6 +108,7 @@ static int domstate_notify_get(struct domstate_notify_priv **ppriv)
 		if (priv == NULL)
 			return -ENOMEM;
 
+		priv->irq = -1;
 		rc = domstate_notify_init(priv);
 		if ( rc ) {
 			kfree(priv);
@@ -96,13 +125,21 @@ static int domstate_notify_get(struct domstate_notify_priv **ppriv)
 
 static void domstate_notify_put(struct domstate_notify_priv **ppriv)
 {
+	struct domstate_notify_priv *priv = *ppriv;
+
 	pr_debug("%s:\n", __func__);
 
-	if (*ppriv == NULL || --(*ppriv)->refs > 0 )
+	if (priv == NULL)
 		return;
 
-	domstate_notify_cleanup(*ppriv);
-	kfree(*ppriv);
+	BUG_ON(priv->refs == 0);
+	priv->refs--;
+
+	if (priv->refs > 0 )
+		return;
+
+	domstate_notify_cleanup(priv);
+	kfree(priv);
 	*ppriv = NULL;
 }
 

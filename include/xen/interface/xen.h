@@ -116,6 +116,8 @@
 #define VIRQ_XC_RESERVED 11 /* G. Reserved for XenClient                     */
 #define VIRQ_ENOMEM     12 /* G. (DOM0) Low on heap memory       */
 #define VIRQ_XENPMU     13  /* PMC interrupt                                 */
+/* FIXME: Check if VIRQ_DOM_EXC cannot be reused */
+#define VIRQ_DOMSTATE   14
 
 /* Architecture-specific VIRQ definitions. */
 #define VIRQ_ARCH_0    16
