@@ -33,8 +33,32 @@ struct domstate_notify_priv {
 static struct domstate_notify_priv *priv = NULL;
 static DEFINE_MUTEX(domstate_notify_refs_mutex);
 
+static void domstate_notify_work_fn(struct work_struct *work)
+{
+	struct domstate_notify_back_ring *back_ring = &priv->back_ring;
+	domstate_notify_event_t evt;
+	RING_IDX rc;
+
+	rc = back_ring->req_cons;
+	rmb();
+
+	while (RING_HAS_UNCONSUMED_REQUESTS(back_ring)) {
+		memcpy(&evt, RING_GET_REQUEST(back_ring, rc), sizeof(evt));
+		back_ring->req_cons = ++rc;
+		back_ring->sring->req_event = rc + 1;
+
+		pr_debug("%s: NEW Event received: "
+			 "ver = %d domain_id = %d state = %d extra = %d\n",
+			 __func__,
+			 evt.version, evt.domain_id, evt.state, evt.extra);
+	}
+
+}
+static DECLARE_WORK(domstate_notify_work, domstate_notify_work_fn);
+
 static irqreturn_t domstate_notify_event(int irq, void *arg)
 {
+	schedule_work(&domstate_notify_work);
 	return IRQ_HANDLED;
 }
 
