@@ -33,6 +33,9 @@ struct domstate_notify_priv {
 static struct domstate_notify_priv *priv = NULL;
 static DEFINE_MUTEX(domstate_notify_refs_mutex);
 
+static void domstate_notify_dispatch(uint32_t domain_id, uint32_t state,
+				     uint32_t extra);
+
 static void domstate_notify_work_fn(struct work_struct *work)
 {
 	struct domstate_notify_back_ring *back_ring = &priv->back_ring;
@@ -51,8 +54,9 @@ static void domstate_notify_work_fn(struct work_struct *work)
 			 "ver = %d domain_id = %d state = %d extra = %d\n",
 			 __func__,
 			 evt.version, evt.domain_id, evt.state, evt.extra);
-	}
 
+		domstate_notify_dispatch(evt.domain_id, evt.state, evt.extra);
+	}
 }
 static DECLARE_WORK(domstate_notify_work, domstate_notify_work_fn);
 
@@ -171,6 +175,7 @@ static void domstate_notify_put(struct domstate_notify_priv **ppriv)
 
 #define DOMSTATE_NOTIFY_GENL_FAMILY_NAME	"domstate_notify"
 #define DOMSTATE_NOTIFY_GENL_VERSION		0x01
+#define DOMSTATE_NOTIFY_MCGROUP_NAME		"domstate_notify"
 
 /* Supported commands */
 enum {
@@ -184,12 +189,25 @@ enum {
 /* Configuration policy attributes */
 enum {
 	DOMSTATE_NOTIFY_ATTR_UNSPEC,
+	DOMSTATE_NOTIFY_ATTR_DOMAIN_ID,
+	DOMSTATE_NOTIFY_ATTR_STATE,
+	DOMSTATE_NOTIFY_ATTR_EXTRA,
 	__DOMSTATE_NOTIFY_ATTR_MAX,
 };
 #define DOMSTATE_NOTIFY_ATTR_MAX (__DOMSTATE_NOTIFY_ATTR_MAX - 1)
 
 static const struct nla_policy domstate_notify_attr_policy[DOMSTATE_NOTIFY_ATTR_MAX + 1] = {
 };
+
+enum domstate_notify_multicast_groups {
+	DOMSTATE_NOTIFY_MCGROUP,
+};
+
+/*
+static const char* domstate_notify_mcgroup_names[] = {
+	DOMSTATE_NOTIFY_MCGROUP_NAME,
+};
+*/
 
 static int domstate_notify_genl_open(struct sk_buff *skb, struct genl_info *info)
 {
@@ -233,6 +251,10 @@ static const struct genl_ops domstate_notify_genl_ops[] = {
 	},
 };
 
+static const struct genl_multicast_group domstate_notify_mcgroups[] = {
+	[DOMSTATE_NOTIFY_MCGROUP] = { .name = DOMSTATE_NOTIFY_MCGROUP_NAME, },
+};
+
 static struct genl_family domstate_notify_genl_family __ro_after_init = {
 	.module		= THIS_MODULE,
 	.name 		= DOMSTATE_NOTIFY_GENL_FAMILY_NAME,
@@ -240,6 +262,8 @@ static struct genl_family domstate_notify_genl_family __ro_after_init = {
 	.ops		= domstate_notify_genl_ops,
 	.n_ops		= ARRAY_SIZE(domstate_notify_genl_ops),
 	.maxattr	= DOMSTATE_NOTIFY_ATTR_MAX,
+	.mcgrps		= domstate_notify_mcgroups,
+	.n_mcgrps	= ARRAY_SIZE(domstate_notify_mcgroups),
 };
 
 static __init int xen_domstate_notify_init(void)
@@ -258,6 +282,32 @@ static __exit void xen_domstate_notify_exit(void)
 	pr_debug("%s: Module unloaded\n", __func__);
 
 	genl_unregister_family(&domstate_notify_genl_family);
+}
+
+static void domstate_notify_dispatch(uint32_t domain_id, uint32_t state,
+				     uint32_t extra)
+{
+	struct sk_buff *msg= nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_ATOMIC);
+	struct nlmsghdr* nlh;
+
+	if (msg == NULL)
+		return;
+
+	nlh = genlmsg_put(msg, 0, 0, &domstate_notify_genl_family, 0, 42);
+	if (nlh == NULL) {
+		nlmsg_free(msg);
+		return;
+	}
+
+	if (nla_put_u32(msg, DOMSTATE_NOTIFY_ATTR_DOMAIN_ID, domain_id) ||
+	    nla_put_u32(msg, DOMSTATE_NOTIFY_ATTR_STATE, state) ||
+	    nla_put_u32(msg, DOMSTATE_NOTIFY_ATTR_EXTRA, extra)) {
+		nlmsg_free(msg);
+		return;
+	}
+	genlmsg_end(msg, nlh);
+	genlmsg_multicast(&domstate_notify_genl_family, msg, 0,
+			  DOMSTATE_NOTIFY_MCGROUP, 0);
 }
 
 module_init(xen_domstate_notify_init);
