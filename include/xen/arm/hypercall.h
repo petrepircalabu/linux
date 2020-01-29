@@ -88,4 +88,10 @@ MULTI_mmu_update(struct multicall_entry *mcl, struct mmu_update *req,
 	BUG();
 }
 
+static inline int
+HEPERVISOR_vm_event_op(domid_t domid, unsigned int cmd, unsigned int type)
+{
+	return -ENOSYS;
+}
+
 #endif /* _ASM_ARM_XEN_HYPERCALL_H */

@@ -446,6 +446,17 @@ HYPERVISOR_dm_op(
 	return ret;
 }
 
+static inline int
+HYPERVISOR_vm_event_op(
+	domid_t dom, unsigned int cmd, unsigned int type)
+{
+	int ret;
+	__xen_stac();
+	ret = _hypercall3(int, vm_event_op, dom, cmd, type);
+	__xen_clac();
+	return ret;
+}
+
 static inline void
 MULTI_fpu_taskswitch(struct multicall_entry *mcl, int set)
 {
