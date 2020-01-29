@@ -12,8 +12,15 @@
 #define DEBUG
 
 #include <linux/module.h>
+
 #include <net/netlink.h>
 #include <net/genetlink.h>
+
+#include <asm/xen/hypercall.h>
+
+#include <xen/xen.h>
+#include <xen/interface/xen.h>
+#include <xen/xen-ops.h>
 
 #define VERSION "0.1"
 
@@ -47,6 +54,7 @@ static const struct nla_policy vm_event_attr_policy[VM_EVENT_ATTR_MAX + 1] = {
 static int vm_event_genl_open(struct sk_buff *skb, struct genl_info *info)
 {
 	uint32_t domid, type;
+	int rc;
 
 	pr_debug("%s:\n", __func__);
 
@@ -61,12 +69,17 @@ static int vm_event_genl_open(struct sk_buff *skb, struct genl_info *info)
 
 	pr_debug("%s:Open vm_event domid = %d type= %d\n", __func__, domid, type);
 
-	return 0;
+	xen_preemptible_hcall_begin();
+	rc = HYPERVISOR_vm_event_op(domid, 1, type);
+	xen_preemptible_hcall_end();
+
+	return rc;
 }
 
 static int vm_event_genl_destroy(struct sk_buff *skb, struct genl_info *info)
 {
 	uint32_t domid, type;
+	int rc;
 
 	pr_debug("%s:\n", __func__);
 
@@ -81,7 +94,11 @@ static int vm_event_genl_destroy(struct sk_buff *skb, struct genl_info *info)
 
 	pr_debug("%s:Destroy vm_event domid = %d type= %d\n", __func__, domid, type);
 
-	return 0;
+	xen_preemptible_hcall_begin();
+	rc = HYPERVISOR_vm_event_op(domid, 2, type);
+	xen_preemptible_hcall_end();
+
+	return rc;
 }
 
 static const struct genl_ops vm_event_genl_ops[] = {
